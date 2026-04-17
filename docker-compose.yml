@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  hermes:
+    build:
+      context: .
+      dockerfile: hermes.Dockerfile
+    container_name: hermes-wiki
+    ports:
+      - "3000:3000"
+    volumes:
+      - hermes-data:/app/hermes-data
+      - hermes-uploads:/app/uploads
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - HF_HUB_OFFLINE=1
+    networks:
+      - hermes-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  langchain:
+    build:
+      context: .
+      dockerfile: langchain.Dockerfile
+    container_name: langchain-orchestrator
+    ports:
+      - "3001:3001"
+    volumes:
+      - hermes-data:/app/hermes-data
+    environment:
+      - HERMES_URL=http://hermes:3000
+      - HF_HUB_OFFLINE=1
+    networks:
+      - hermes-net
+    depends_on:
+      - hermes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  hermes-net:
+    driver: bridge
+
+volumes:
+  hermes-data:
+  hermes-uploads:
