@@ -163,33 +163,6 @@ def normalize(text: str) -> str:
     return text
 
 
-def extract_article_by_number(content: str, query: str) -> str:
-    """Extrae un artículo específico cuando la query contiene número de artículo"""
-    # Buscar patrón "articulo 112" o "art. 112" o solo "112"
-    match = re.search(r'(\d{3,})\b', query)
-    if not match:
-        return ""
-    art_num = match.group(1)
-
-    # Buscar el artículo en el documento (con o sin tilde, con o sin punto)
-    # Patrones: **Artículo 112.** o **Art. 112** o Artículo 112.
-    patterns = [
-        rf'\*\*(?:Artículo|Art\.?)\s*{art_num}[^.]*\.?\*\*\s*(.*?)(?=\n\*\*[A-Z]|\n---|\n#|\Z)',
-        rf'(?:^|\n)(?:Artículo|Art\.?)\s*{art_num}[^.]*\.?\s*\n(.*?)(?=\n(?:[A-ZÁÉÍÓÚ]{{2,}}|---)|\Z)',
-    ]
-    for pattern in patterns:
-        m = re.search(pattern, content, re.IGNORECASE | re.MULTILINE | re.DOTALL)
-        if m:
-            text = m.group(1).strip()
-            # Limpiar negritas
-            text = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', text)
-            # Limitar largo
-            if len(text) > 600:
-                text = text[:600] + '...'
-            return text
-    return ""
-
-
 def extract_summary(content: str) -> str:
     """Extrae sección Resumen del documento para respuestas inteligentes"""
     # Buscar patrón ## Resumen o ## Resumen/Ejecutivo
@@ -210,7 +183,8 @@ def extract_summary(content: str) -> str:
 
 def smart_search_content(wiki_path: Path, query: str, folder: Optional[str] = None) -> list[dict]:
     """
-    Búsqueda inteligente con normalización de acentos y extracción de artículos.
+    Búsqueda inteligente con normalización de acentos para encontrar texto
+    independientemente de tildes/diacríticos.
     """
     q_normalized = normalize(query)
     results = []
@@ -220,9 +194,6 @@ def smart_search_content(wiki_path: Path, query: str, folder: Optional[str] = No
                         'resumen general', 'de que se trata', 'overview', 'summary',
                         'de que trata el', 'de qué se trata', 'que trata']
     is_general_query = any(p in q_normalized for p in general_patterns)
-
-    # Detectar si es consulta de artículo específico ("articulo 112" o "112")
-    has_article_number = bool(re.search(r'\d{3,}', query))
 
     # Determinar path de búsqueda
     search_path = Path(wiki_path)
@@ -247,17 +218,8 @@ def smart_search_content(wiki_path: Path, query: str, folder: Optional[str] = No
             # Para consultas generales, priorizar sección Resumen
             summary = extract_summary(content)
             preview = summary if summary else content[:200]
-        elif has_article_number:
-            # Extraer artículo específico
-            article_text = extract_article_by_number(content, query)
-            if article_text:
-                preview = f"**Artículo encontrado:**\n\n{article_text}"
-            else:
-                # fallback: snippet normal
-                idx = content_normalized.index(q_normalized)
-                preview = content[max(0, idx-50):idx+150].strip()
         else:
-            # Búsqueda normal por snippets con normalización
+            # Búsqueda por snippets con normalización
             idx = content_normalized.index(q_normalized)
             preview = content[max(0, idx-50):idx+150].strip()
 

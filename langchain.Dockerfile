@@ -11,5 +11,5 @@ RUN pip install --no-cache-dir -r /app/langchain/requirements.txt
 
 COPY langchain/app /app/langchain/app
 
-EXPOSE 3001
-CMD ["uvicorn", "langchain.app.main:app", "--host", "0.0.0.0", "--port", "3001"]
+EXPOSE 3000
+CMD ["uvicorn", "langchain.app.main:app", "--host", "0.0.0.0", "--port", "3000"]
